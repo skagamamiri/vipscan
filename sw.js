@@ -1,5 +1,5 @@
 /* Service worker VIP Scan — rangkaian dahulu (supaya kemas kini cepat sampai), cache sebagai sandaran */
-const CACHE = "vipscan-v1";
+const CACHE = "vipscan-v2";
 const CORE = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
@@ -24,6 +24,8 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   // Jangan sentuh trafik Supabase (Realtime / API)
   if (url.hostname.endsWith("supabase.co")) return;
+  // Video: biar pelayar urus sendiri (permintaan julat / streaming)
+  if (/\.(mp4|webm|mov)$/i.test(url.pathname) || req.headers.has("range")) return;
 
   const cacheable = url.origin === location.origin ||
     /(^|\.)(jsdelivr\.net|googleapis\.com|gstatic\.com)$/.test(url.hostname);
