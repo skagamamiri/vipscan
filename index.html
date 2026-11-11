@@ -277,7 +277,7 @@ function launch(){
   if (stage!=="ok") return;
   stage="go"; show("s-go");
   const playVid = CFG.video && MODE!=="tablet";   // tablet: tiada video (jimat bandwidth untuk siaran kamera)
-  let n = (playVid && CFG.kiraan!=="ya") ? 0 : 3; const c=$("count");
+  let n = ((playVid || MODE==="tablet") && CFG.kiraan!=="ya") ? 0 : 3; const c=$("count");   // tablet: terus ke paparan majlis
   (function tick(){
     if (n>0){ c.textContent=n; c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); beep(520,.18,"triangle",.2); n--; setTimeout(tick,1000); return; }
     c.textContent="";
