@@ -36,3 +36,11 @@ index.html?mode=skrin&bilik=anugerah2026&nama=YB%20Dato'%20Ali&jawatan=Ahli%20Pa
 - Mesti dibuka melalui **https** (GitHub Pages) supaya kamera berfungsi.
 - Jika Wi-Fi sekolah menyekat sambungan antara peranti, sambungkan tablet & PC ke **hotspot telefon yang sama**.
 - Buat latihan penuh di dewan sebelum majlis.
+
+## Pasang sebagai app (PWA)
+
+Buka `https://skagamamiri.github.io/vipscan/` di Chrome (Android/PC) → tekan **⬇ PASANG APP** pada skrin pilihan mod,
+atau menu ⋮ → **Install app / Add to Home screen**. Di iPad: Safari → **Kongsi** → **Add to Home Screen**.
+
+Bila app dibuka kali pertama, pilih mod **Tablet**, **Skrin Dewan** atau **Solo** dan kod bilik. Pilihan ini diingat.
+Tukar melalui butang **⇄ Tukar mod** di bawah kiri. Tekan lama ikon app (Android) untuk pintasan terus ke mod Tablet / Skrin.

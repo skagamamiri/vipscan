@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>VIP Facial Recognition</title>
+<title>VIP Scan · SK Agama (MIS) Miri</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#030a1c">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VIP Scan">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* =====================================================================
@@ -69,10 +77,25 @@ video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;tran
 .final p{font-family:Orbitron;letter-spacing:.3em;color:#ffe9b0;font-size:clamp(12px,2vw,26px);margin-top:1em}
 /* operator */
 #help{position:fixed;right:10px;bottom:8px;font-size:12px;color:rgba(143,182,214,.35)}
-#fs{position:fixed;left:10px;bottom:8px;font-size:12px;color:rgba(143,182,214,.45);background:none;border:1px solid rgba(143,182,214,.25);border-radius:6px;padding:4px 8px;cursor:pointer}
+#fs{font-size:12px;color:rgba(143,182,214,.45);background:none;border:1px solid rgba(143,182,214,.25);border-radius:6px;padding:4px 8px;cursor:pointer}
 #link{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;font-family:Orbitron;font-size:11px;letter-spacing:.12em;opacity:.7;z-index:20}
 #arm{position:fixed;inset:0;z-index:50;background:rgba(2,6,17,.92);display:flex;align-items:center;justify-content:center;text-align:center;font-family:Orbitron;font-size:clamp(18px,3vw,36px);letter-spacing:.14em;color:var(--line);cursor:pointer}
 #arm small{display:block;font-size:.45em;color:var(--dim);margin-top:1em}
+#pick{position:fixed;inset:0;z-index:60;background:radial-gradient(ellipse at 50% 30%,#0b2a63,#020611 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2vh;padding:4vh 16px;text-align:center;overflow:auto}
+#pick img{width:clamp(80px,14vh,140px);filter:drop-shadow(0 0 18px rgba(47,211,255,.35))}
+#pick h2{font-family:Orbitron;letter-spacing:.2em;font-size:clamp(20px,3.4vw,40px);text-shadow:0 0 16px var(--line)}
+#pick .sch{color:var(--dim);letter-spacing:.12em;font-size:clamp(12px,1.5vw,17px);margin-top:-1vh}
+#pick .opts{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:1vh}
+#pick .opt{width:min(260px,80vw);padding:22px 18px;border:2px solid rgba(47,211,255,.45);border-radius:16px;background:rgba(8,30,70,.6);color:var(--txt);cursor:pointer;font-family:Rajdhani;text-align:center}
+#pick .opt:hover,#pick .opt:focus{border-color:var(--line);box-shadow:0 0 24px rgba(47,211,255,.4);outline:none}
+#pick .opt b{display:block;font-family:Orbitron;font-size:18px;letter-spacing:.14em;color:var(--line);margin-bottom:6px}
+#pick .opt span{color:var(--dim);font-size:15px}
+#pick .room{color:var(--dim);font-size:14px}
+#pick .room input{background:rgba(0,0,0,.35);border:1px solid rgba(47,211,255,.4);color:var(--txt);border-radius:8px;padding:6px 10px;font:inherit;font-size:15px;width:12em;text-align:center}
+.inst{font-family:Orbitron;font-size:13px;letter-spacing:.12em;color:#001024;background:linear-gradient(180deg,#ffe48a,#ffb703);border:0;border-radius:999px;padding:10px 20px;cursor:pointer;display:none}
+#ioshint{color:var(--dim);font-size:14px;display:none;max-width:30em}
+#bar{position:fixed;left:10px;bottom:8px;display:flex;gap:6px;z-index:21}
+#bar button{font-size:12px;color:rgba(143,182,214,.55);background:none;border:1px solid rgba(143,182,214,.25);border-radius:6px;padding:4px 8px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -118,7 +141,7 @@ video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;tran
 </section>
 <canvas id="fx"></canvas>
 
-<button id="fs">⛶ Skrin penuh</button>
+<div id="bar"><button id="fs">⛶ Skrin penuh</button><button id="chmode">⇄ Tukar mod</button></div>
 <div id="help">Space/Enter = seterusnya · R = ulang</div>
 
 <script>
@@ -148,7 +171,13 @@ const CFG = {
 };
 const q = new URLSearchParams(location.search);
 for (const k of Object.keys(CFG)) if (q.has(k)) CFG[k] = (k==="saatImbas"||k==="kbps") ? +q.get(k) : q.get(k);
-const MODE = CFG.mode;
+let savedMode = null, savedRoom = null;
+try{ savedMode = localStorage.getItem("vipscan-mode"); savedRoom = localStorage.getItem("vipscan-bilik"); }catch(e){}
+if (!q.has("mode") && savedMode) CFG.mode = savedMode;
+if (!q.has("bilik") && savedRoom) CFG.bilik = savedRoom;
+if (q.has("mode")) try{ localStorage.setItem("vipscan-mode", CFG.mode); }catch(e){}
+const NEED_PICK = !q.has("mode") && !savedMode;
+const MODE = NEED_PICK ? "pick" : CFG.mode;
 /* ======================================================= */
 
 const $ = id => document.getElementById(id);
@@ -166,7 +195,7 @@ setInterval(() => $("clock").textContent = new Date().toLocaleTimeString("en-GB"
 /* ---------- kamera (tablet / solo) ---------- */
 let localStream = null;
 async function startCam(){
-  if (localStream || MODE==="skrin") return;
+  if (localStream || MODE==="skrin" || MODE==="pick") return;
   try{
     localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}},audio:false});
     localStream.getVideoTracks().forEach(t=>{ try{ t.contentHint="detail"; }catch(e){} });
@@ -210,7 +239,7 @@ requestAnimationFrame(drawDots);
 
 /* ---------- bunyi (dijana; tablet senyap supaya bunyi keluar di speaker dewan sahaja) ---------- */
 let ac;
-const SOUND = MODE !== "tablet";
+const SOUND = MODE !== "tablet" && MODE !== "pick";
 function beep(f=880,d=.08,type="sine",v=.15){
   if (!SOUND) return;
   try{ ac = ac || new (window.AudioContext||window.webkitAudioContext)();
@@ -370,7 +399,7 @@ function linkReady(){
   } else if (localStream) send({t:"tablethello"});
 }
 async function initLink(){
-  if (MODE==="solo") return;
+  if (MODE==="solo" || MODE==="pick") return;
   const el=document.createElement("div"); el.id="link"; document.body.appendChild(el);
   setLink("MENYAMBUNG…", false);
   if (CFG.supabaseUrl && CFG.supabaseKey){
@@ -400,6 +429,51 @@ if (MODE==="skrin"){
   document.body.appendChild(ov);
 }
 initLink();
+
+/* ======================= PILIH MOD + PASANG APP ======================= */
+let deferredInstall = null;
+function showPicker(){
+  const ov = document.createElement("div"); ov.id = "pick";
+  ov.innerHTML = `
+    <img src="icons/logo.png" alt="Logo SK Agama (MIS) Miri">
+    <h2>VIP SCAN</h2>
+    <div class="sch">SK AGAMA (MIS) MIRI</div>
+    <div class="opts">
+      <button class="opt" data-m="tablet"><b>TABLET</b><span>Peranti yang dipegang VIP · guna kamera</span></button>
+      <button class="opt" data-m="skrin"><b>SKRIN DEWAN</b><span>PC / laptop yang disambung ke projektor</span></button>
+      <button class="opt" data-m="solo"><b>SOLO</b><span>Satu peranti sahaja · tanpa segerak</span></button>
+    </div>
+    <div class="room">Kod bilik (mesti sama pada tablet & PC): <input id="pkroom" value="${CFG.bilik}"></div>
+    <button class="inst" id="pkinst">⬇ PASANG APP</button>
+    <div id="ioshint">Untuk pasang di iPad/iPhone: tekan butang <b>Kongsi</b> di Safari, kemudian <b>Add to Home Screen</b>.</div>`;
+  document.body.appendChild(ov);
+  ov.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+    const room = (ov.querySelector("#pkroom").value || "anugerah2026").trim();
+    try{ localStorage.setItem("vipscan-mode", b.dataset.m); localStorage.setItem("vipscan-bilik", room); }catch(e){}
+    const u = new URLSearchParams(location.search); u.set("mode", b.dataset.m); u.set("bilik", room);
+    location.search = u.toString();
+  });
+  ov.querySelector("#pkinst").onclick = doInstall;
+  refreshInstall();
+}
+function isStandalone(){ return matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches || navigator.standalone; }
+function refreshInstall(){
+  const b = $("pkinst"); if (b) b.style.display = deferredInstall && !isStandalone() ? "inline-block" : "none";
+  const h = $("ioshint"); if (h) h.style.display = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && "ontouchend" in document && !isStandalone() ? "block" : "none";
+}
+async function doInstall(){
+  if (!deferredInstall) return;
+  deferredInstall.prompt(); await deferredInstall.userChoice.catch(()=>{}); deferredInstall = null; refreshInstall();
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferredInstall = e; refreshInstall(); });
+addEventListener("appinstalled", () => { deferredInstall = null; refreshInstall(); });
+$("chmode").onclick = () => {
+  try{ localStorage.removeItem("vipscan-mode"); }catch(e){}
+  const u = new URLSearchParams(location.search); u.delete("mode");
+  location.search = u.toString();
+};
+if (NEED_PICK) showPicker();
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
 /* ---------- bunga api + konfeti ---------- */
 function fireworks(){

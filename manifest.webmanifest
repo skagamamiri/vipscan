@@ -1,0 +1,24 @@
+{
+  "name": "VIP Scan · SK Agama (MIS) Miri",
+  "short_name": "VIP Scan",
+  "description": "Gimik imbasan wajah VIP untuk pelancaran Majlis Anugerah Cemerlang SK Agama (MIS) Miri.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#030a1c",
+  "theme_color": "#030a1c",
+  "lang": "ms",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Mod Tablet (VIP)", "short_name": "Tablet", "url": "./?mode=tablet", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mod Skrin Dewan", "short_name": "Skrin", "url": "./?mode=skrin", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
