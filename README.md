@@ -1,6 +1,6 @@
 # VIP Facial Recognition — Gimik Pelancaran Majlis
 
-Halaman gimik "imbasan wajah VIP" untuk Majlis Anugerah Cemerlang SK Agama (MIS) Miri.
+Halaman gimik "imbasan wajah VIP" untuk Majlis Anugerah Kecemerlangan SK Agama (MIS) Miri 2026.
 Aliran: imbasan wajah → **FACIAL PASS GRANTED** → kiraan 3-2-1 → video pelancaran / bunga api.
 
 > Imbasan ini berskrip (sentiasa lulus dan papar nama yang ditetapkan) supaya selamat di atas pentas.
