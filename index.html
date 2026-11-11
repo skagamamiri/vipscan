@@ -337,7 +337,7 @@ async function initLink(){
   setLink("MENYAMBUNG…", false);
   if (CFG.supabaseUrl && CFG.supabaseKey){
     try{
-      await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js");
+      await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js");
       const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
       const ch = sb.channel("vipscan-"+CFG.bilik, {config:{broadcast:{self:false}}});
       ch.on("broadcast", {event:"m"}, ({payload}) => onMsg(payload));
