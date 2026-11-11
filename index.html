@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>VIP Facial Recognition</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =====================================================================
+   TETAPAN — ubah di sini, atau guna URL:
+   index.html?nama=YB%20Dato%20Ali&jawatan=Ahli%20Parlimen&video=launch.mp4
+   ===================================================================== */
+:root{
+  --bg:#030a1c; --panel:rgba(8,30,70,.55); --line:#2fd3ff; --line2:#1b7bff;
+  --ok:#1ff28a; --okbg:rgba(10,90,60,.55); --txt:#e8f6ff; --dim:#8fb6d6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font-family:Rajdhani,system-ui,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+body{background:radial-gradient(ellipse at 50% 40%,#0b2a63 0%,#041030 55%,#020611 100%)}
+#grid{position:fixed;inset:0;background-image:linear-gradient(rgba(47,211,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(47,211,255,.06) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 80%)}
+.scene{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3vh 4vw;opacity:0;pointer-events:none;transition:opacity .6s}
+.scene.on{opacity:1;pointer-events:auto}
+.hdr{font-family:Orbitron;font-weight:700;letter-spacing:.18em;font-size:clamp(18px,3.6vw,44px);text-shadow:0 0 18px var(--line)}
+.sub{color:var(--dim);letter-spacing:.12em;font-size:clamp(11px,1.5vw,18px);margin-top:.4em;text-transform:uppercase}
+.frame{position:relative;margin-top:3vh;width:min(78vw,120vh);aspect-ratio:16/9;border:2px solid rgba(47,211,255,.45);border-radius:18px;background:var(--panel);box-shadow:0 0 40px rgba(47,211,255,.25),inset 0 0 60px rgba(27,123,255,.2);overflow:hidden}
+video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:saturate(1.1) contrast(1.05)}
+.camoff{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:clamp(14px,2vw,22px);text-align:center;padding:2em}
+/* bingkai wajah */
+.face{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:3/4;transform:translate(-50%,-52%)}
+.face i{position:absolute;width:22%;height:16%;border:4px solid var(--line);filter:drop-shadow(0 0 8px var(--line))}
+.face i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:14px 0 0 0}
+.face i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 14px 0 0}
+.face i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 14px}
+.face i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 14px 0}
+.face.lock i{border-color:var(--ok);filter:drop-shadow(0 0 10px var(--ok))}
+.scanline{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--line),transparent);box-shadow:0 0 18px 4px var(--line);top:0;display:none}
+.scanning .scanline{display:block;animation:sweep 1.6s ease-in-out infinite alternate}
+@keyframes sweep{from{top:4%}to{top:96%}}
+#dots{position:absolute;inset:0;width:100%;height:100%}
+.hud{position:absolute;font-family:Orbitron;font-size:clamp(9px,1.05vw,13px);color:var(--line);letter-spacing:.1em;line-height:1.7;text-shadow:0 0 6px var(--line)}
+.hud.tl{left:2.5%;top:4%}.hud.tr{right:2.5%;top:4%;text-align:right}.hud.bl{left:2.5%;bottom:4%}
+.bar{position:absolute;left:25%;right:25%;bottom:5%;height:10px;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:rgba(0,0,0,.35)}
+.bar b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--line2),var(--line));box-shadow:0 0 12px var(--line)}
+.status{margin-top:2.4vh;font-family:Orbitron;font-size:clamp(13px,2vw,24px);letter-spacing:.14em;min-height:1.5em;color:var(--line)}
+.btn{margin-top:3vh;font-family:Orbitron;font-weight:700;letter-spacing:.16em;font-size:clamp(14px,2vw,24px);color:#001024;background:linear-gradient(180deg,#6fe6ff,#1ea7ff);border:0;border-radius:999px;padding:.9em 2.4em;box-shadow:0 0 30px rgba(47,211,255,.6);cursor:pointer;animation:pulse 1.6s infinite}
+.btn.green{background:linear-gradient(180deg,#7dffc0,#14d27a);box-shadow:0 0 30px rgba(31,242,138,.6)}
+@keyframes pulse{50%{transform:scale(1.04);box-shadow:0 0 50px rgba(47,211,255,.9)}}
+/* granted */
+.card{width:min(80vw,120vh);border:2px solid var(--ok);border-radius:22px;background:var(--okbg);box-shadow:0 0 60px rgba(31,242,138,.35),inset 0 0 50px rgba(31,242,138,.15);text-align:center;padding:5vh 4vw;transform:scale(.85);transition:transform .7s cubic-bezier(.2,1.6,.4,1)}
+#s-ok.on .card{transform:scale(1)}
+.tick{width:clamp(60px,9vw,120px);height:clamp(60px,9vw,120px);margin:0 auto 2vh}
+.tick path{stroke:var(--ok);stroke-width:7;fill:none;stroke-linecap:round;stroke-dasharray:120;stroke-dashoffset:120;filter:drop-shadow(0 0 8px var(--ok))}
+#s-ok.on .tick path{animation:draw .8s .2s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.granted{font-family:Orbitron;font-weight:900;font-size:clamp(22px,4.6vw,60px);letter-spacing:.12em;color:#eafff3;text-shadow:0 0 20px var(--ok)}
+.match{font-family:Orbitron;color:var(--ok);letter-spacing:.3em;font-size:clamp(10px,1.3vw,16px);margin-top:.6em}
+.vname{font-family:Orbitron;font-weight:700;font-size:clamp(18px,3.2vw,42px);margin-top:3vh;letter-spacing:.06em}
+.vpos{color:#b9f5d6;font-size:clamp(14px,2vw,26px);letter-spacing:.14em;text-transform:uppercase;margin-top:.3em}
+.msg{color:#d8f3e6;font-size:clamp(13px,1.6vw,20px);margin-top:2.4vh;max-width:46em;margin-left:auto;margin-right:auto}
+/* launch */
+#s-go{background:#000}
+#count{font-family:Orbitron;font-weight:900;font-size:min(40vw,60vh);color:#fff;text-shadow:0 0 60px var(--line),0 0 120px var(--line2)}
+#count.pop{animation:pop .9s ease-out}
+@keyframes pop{from{transform:scale(1.8);opacity:0}30%{opacity:1}to{transform:scale(.9);opacity:.2}}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+#lvid{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000;display:none}
+.final{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:5;padding:0 4vw}
+.final h1{font-family:Orbitron;font-weight:900;font-size:clamp(28px,6vw,90px);letter-spacing:.08em;background:linear-gradient(180deg,#fff7c9,#ffc93a 55%,#ff8a00);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(255,180,40,.6))}
+.final p{font-family:Orbitron;letter-spacing:.3em;color:#ffe9b0;font-size:clamp(12px,2vw,26px);margin-top:1em}
+/* operator */
+#help{position:fixed;right:10px;bottom:8px;font-size:12px;color:rgba(143,182,214,.35)}
+#fs{position:fixed;left:10px;bottom:8px;font-size:12px;color:rgba(143,182,214,.45);background:none;border:1px solid rgba(143,182,214,.25);border-radius:6px;padding:4px 8px;cursor:pointer}
+#link{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;font-family:Orbitron;font-size:11px;letter-spacing:.12em;opacity:.7;z-index:20}
+#arm{position:fixed;inset:0;z-index:50;background:rgba(2,6,17,.92);display:flex;align-items:center;justify-content:center;text-align:center;font-family:Orbitron;font-size:clamp(18px,3vw,36px);letter-spacing:.14em;color:var(--line);cursor:pointer}
+#arm small{display:block;font-size:.45em;color:var(--dim);margin-top:1em}
+</style>
+</head>
+<body>
+<div id="grid"></div>
+
+<!-- 1. STANDBY + SCAN -->
+<section class="scene on" id="s-scan">
+  <div class="hdr">VIP FACIAL RECOGNITION</div>
+  <div class="sub" id="evt">Sistem Akses Digital · Majlis Anugerah Cemerlang</div>
+  <div class="frame" id="frame">
+    <video id="cam" autoplay playsinline muted></video>
+    <div class="camoff" id="camoff">Ketik di mana-mana untuk hidupkan kamera</div>
+    <canvas id="dots"></canvas>
+    <div class="face" id="face"><i></i><i></i><i></i><i></i></div>
+    <div class="scanline"></div>
+    <div class="hud tl">BIOMETRIC SCANNER v3.2<br>MODE: VIP AUTH<br>CAM: <span id="camst">--</span></div>
+    <div class="hud tr"><span id="clock">--:--:--</span><br>NODE: SKAM-01<br>ENC: AES-256</div>
+    <div class="hud bl" id="log"></div>
+    <div class="bar"><b id="prog"></b></div>
+  </div>
+  <div class="status" id="status">SILA HADAPKAN WAJAH KE KAMERA</div>
+  <button class="btn" id="bScan">MULA IMBASAN</button>
+</section>
+
+<!-- 2. GRANTED -->
+<section class="scene" id="s-ok">
+  <div class="card">
+    <svg class="tick" viewBox="0 0 100 100"><path d="M22 52 L43 72 L80 30"/></svg>
+    <div class="granted">FACIAL PASS GRANTED</div>
+    <div class="match">IDENTITY MATCH CONFIRMED · 99.7%</div>
+    <div class="vname" id="vname"></div>
+    <div class="vpos" id="vpos"></div>
+    <div class="msg" id="vmsg"></div>
+    <button class="btn green" id="bGo">LANCARKAN MAJLIS</button>
+  </div>
+</section>
+
+<!-- 3. LAUNCH -->
+<section class="scene" id="s-go">
+  <div id="count"></div>
+  <div class="final" id="final"><h1 id="ftitle"></h1><p id="fsub"></p></div>
+  <video id="lvid" playsinline></video>
+</section>
+<canvas id="fx"></canvas>
+
+<button id="fs">⛶ Skrin penuh</button>
+<div id="help">Space/Enter = seterusnya · R = ulang</div>
+
+<script>
+/* ======================= TETAPAN ======================= */
+const CFG = {
+  nama:    "YB DATO' NAMA VIP",
+  jawatan: "Ahli Parlimen P000 Kawasan",
+  mesej:   "Pengesahan biometrik berjaya. Dengan segala hormatnya, YB dijemput untuk melancarkan Majlis Anugerah Cemerlang.",
+  majlis:  "Sistem Akses Digital · Majlis Anugerah Cemerlang 2026",
+  tajuk:   "MAJLIS ANUGERAH CEMERLANG",
+  subtajuk:"SK AGAMA (MIS) MIRI · 2026",
+  video:   "",      // cth "launch.mp4" — kosongkan untuk paparan tajuk + bunga api
+  saatImbas: 6,     // tempoh imbasan (saat)
+
+  /* ---- Penyegerakan tablet ↔ PC ----
+     mode : "solo"  = satu peranti sahaja
+            "tablet"= peranti yang ada kamera (VIP pegang)
+            "skrin" = PC/laptop yang disambung ke skrin dewan
+     bilik: kod bilik — mesti SAMA pada tablet & PC
+     supabaseUrl / supabaseKey: projek Supabase (URL + anon/publishable key).
+     Jika kosong, penyegerakan hanya berfungsi antara tab dalam pelayar yang sama (untuk ujian). */
+  mode:  "solo",
+  bilik: "anugerah2026",
+  supabaseUrl: "",
+  supabaseKey: ""
+};
+const q = new URLSearchParams(location.search);
+for (const k of Object.keys(CFG)) if (q.has(k)) CFG[k] = k==="saatImbas" ? +q.get(k) : q.get(k);
+const MODE = CFG.mode;
+/* ======================================================= */
+
+const $ = id => document.getElementById(id);
+$("evt").textContent = CFG.majlis;
+$("vname").textContent = CFG.nama;
+$("vpos").textContent = CFG.jawatan;
+$("vmsg").textContent = CFG.mesej;
+$("ftitle").textContent = CFG.tajuk;
+$("fsub").textContent = CFG.subtajuk;
+
+let stage = "idle"; // idle → scanning → ok → go → done
+const show = id => document.querySelectorAll(".scene").forEach(s => s.classList.toggle("on", s.id === id));
+setInterval(() => $("clock").textContent = new Date().toLocaleTimeString("en-GB"), 1000);
+
+/* ---------- kamera (tablet / solo) ---------- */
+let localStream = null;
+async function startCam(){
+  if (localStream || MODE==="skrin") return;
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});
+    $("cam").srcObject = localStream; $("camoff").style.display="none"; $("camst").textContent="ONLINE";
+    if (MODE==="tablet") send({t:"tablethello"});
+  }catch(e){
+    $("camoff").textContent = "Kamera tidak dapat dibuka ("+e.name+"). Pastikan laman dibuka melalui https dan kebenaran kamera dibenarkan.";
+    $("camst").textContent="OFFLINE";
+  }
+}
+if (MODE==="skrin") $("camoff").textContent = "Menunggu siaran kamera dari tablet…";
+else { document.addEventListener("pointerdown", startCam, {once:true}); startCam(); }
+
+/* ---------- titik "landmark" wajah (rawak bertetap supaya sama di kedua-dua skrin) ---------- */
+const dc = $("dots"), dx = dc.getContext("2d");
+let pts = [];
+function sizeDots(){ dc.width = dc.clientWidth; dc.height = dc.clientHeight; }
+addEventListener("resize", sizeDots); sizeDots();
+function rng(seed){ return ()=>{ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function makePts(){
+  const R = rng(2026); pts = [];
+  const cx=.5, cy=.48, rx=.13, ry=.27;
+  for(let i=0;i<70;i++){
+    const a=R()*Math.PI*2, r=Math.sqrt(R());
+    pts.push({x:cx+Math.cos(a)*rx*r, y:cy+Math.sin(a)*ry*r*.9, p:R()*6});
+  }
+}
+function drawDots(t){
+  dx.clearRect(0,0,dc.width,dc.height);
+  if (stage==="scanning" || stage==="ok"){
+    const col = stage==="ok" ? "31,242,138" : "47,211,255";
+    dx.strokeStyle=`rgba(${col},.18)`; dx.lineWidth=1;
+    for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i*7+3)%pts.length];
+      dx.beginPath(); dx.moveTo(a.x*dc.width,a.y*dc.height); dx.lineTo(b.x*dc.width,b.y*dc.height); dx.stroke(); }
+    for(const p of pts){ const al=.4+.6*Math.abs(Math.sin(t/400+p.p));
+      dx.fillStyle=`rgba(${col},${al})`; dx.beginPath(); dx.arc(p.x*dc.width,p.y*dc.height,2.2,0,7); dx.fill(); }
+  }
+  requestAnimationFrame(drawDots);
+}
+requestAnimationFrame(drawDots);
+
+/* ---------- bunyi (dijana; tablet senyap supaya bunyi keluar di speaker dewan sahaja) ---------- */
+let ac;
+const SOUND = MODE !== "tablet";
+function beep(f=880,d=.08,type="sine",v=.15){
+  if (!SOUND) return;
+  try{ ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain(); o.type=type; o.frequency.value=f;
+    g.gain.setValueAtTime(v,ac.currentTime); g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+d);
+  }catch(e){}
+}
+
+/* ---------- aliran ---------- */
+const LOG = ["MENGESAN WAJAH…","MEMETAKAN 68 TITIK BIOMETRIK…","MENGANALISIS STRUKTUR WAJAH…","MEMADANKAN PANGKALAN DATA VIP…","MENGESAHKAN IDENTITI…"];
+function scan(){
+  if (stage!=="idle") return;
+  startCam(); stage="scanning"; makePts();
+  $("bScan").style.visibility="hidden"; $("frame").classList.add("scanning");
+  const T = CFG.saatImbas*1000, t0 = performance.now(); let li=-1;
+  (function step(){
+    const k = Math.min(1,(performance.now()-t0)/T);
+    $("prog").style.width = (k*100)+"%";
+    const i = Math.min(LOG.length-1, Math.floor(k*LOG.length));
+    if (i!==li){ li=i; $("status").textContent = LOG[i]; beep(700+i*120,.07,"square",.06);
+      $("log").innerHTML = LOG.slice(0,i+1).map(s=>"› "+s).join("<br>"); }
+    if (k<1) return requestAnimationFrame(step);
+    $("face").classList.add("lock"); $("status").textContent="IDENTITI DISAHKAN"; $("status").style.color="var(--ok)";
+    stage="ok"; beep(660,.12); setTimeout(()=>beep(990,.25),130);
+    setTimeout(()=>show("s-ok"), 900);
+  })();
+}
+function launch(){
+  if (stage!=="ok") return;
+  stage="go"; show("s-go");
+  let n=3; const c=$("count");
+  (function tick(){
+    if (n>0){ c.textContent=n; c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); beep(520,.18,"triangle",.2); n--; setTimeout(tick,1000); return; }
+    c.textContent=""; beep(1040,.5,"sawtooth",.12);
+    if (CFG.video){ const v=$("lvid"); v.src=CFG.video; v.muted = !SOUND; v.style.display="block"; v.play().catch(()=>{}); v.onended=finale; }
+    else finale();
+  })();
+}
+function finale(){ stage="done"; $("lvid").style.display="none"; $("final").style.display="flex"; fireworks(); }
+
+/* tindakan: dijalankan di sini DAN dihantar ke peranti satu lagi */
+function act(a, remote){
+  if (!a) return;
+  if (a==="scan" && stage!=="idle") return;
+  if (a==="launch" && stage!=="ok") return;
+  if (!remote) send({t:"cmd", a});
+  if (a==="scan") scan();
+  else if (a==="launch") launch();
+  else if (a==="reset") setTimeout(()=>location.reload(), remote?0:300);
+}
+$("bScan").onclick = ()=>act("scan");
+$("bGo").onclick = ()=>act("launch");
+addEventListener("keydown", e=>{
+  if (e.key===" "||e.key==="Enter"||e.key==="PageDown"||e.key==="ArrowRight"){ e.preventDefault();
+    act(stage==="idle" ? "scan" : stage==="ok" ? "launch" : null); }
+  if (e.key==="r"||e.key==="R") act("reset");
+});
+$("fs").onclick = ()=> document.documentElement.requestFullscreen?.();
+
+/* ======================================================================
+   PENYEGERAKAN: Supabase Realtime (antara peranti) atau BroadcastChannel (ujian)
+   + WebRTC untuk siaran kamera tablet → skrin
+   ====================================================================== */
+let _send = ()=>{};
+function send(m){ try{ _send(m); }catch(e){} }
+function setLink(s, ok){
+  const el=$("link"); if(!el) return;
+  el.textContent = (MODE==="tablet"?"TABLET":"SKRIN")+" · "+CFG.bilik+" · "+s;
+  el.style.color = ok ? "var(--ok)" : "#ffb84d";
+}
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+
+const ICE = {iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
+let pc=null, pendingIce=[];
+function newPC(){
+  if (pc) pc.close();
+  pendingIce=[];
+  pc = new RTCPeerConnection(ICE);
+  pc.onicecandidate = e => { if (e.candidate) send({t:"ice", from:MODE, c:e.candidate.toJSON()}); };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    setLink(s==="connected" ? "BERSAMBUNG" : s==="failed" ? "GAGAL – cuba semula" : s.toUpperCase(), s==="connected");
+  };
+  if (MODE==="skrin") pc.ontrack = e => {
+    const v=$("cam"); v.srcObject = e.streams[0]; v.play().catch(()=>{});
+    $("camoff").style.display="none"; $("camst").textContent="LIVE · TABLET";
+  };
+  return pc;
+}
+async function makeOffer(){
+  if (!localStream) return;
+  newPC();
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  await pc.setLocalDescription(await pc.createOffer());
+  send({t:"offer", sdp:pc.localDescription.toJSON()});
+}
+async function onMsg(m){
+  if (!m || !m.t) return;
+  if (m.t==="cmd") return act(m.a, true);
+  if (MODE==="tablet"){
+    if (m.t==="hello") makeOffer();
+    else if (m.t==="answer" && pc){ await pc.setRemoteDescription(m.sdp); for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[]; }
+    else if (m.t==="ice" && m.from==="skrin" && pc){ pc.remoteDescription ? pc.addIceCandidate(m.c).catch(()=>{}) : pendingIce.push(m.c); }
+  } else if (MODE==="skrin"){
+    if (m.t==="tablethello") send({t:"hello"});
+    else if (m.t==="offer"){
+      newPC(); await pc.setRemoteDescription(m.sdp);
+      await pc.setLocalDescription(await pc.createAnswer());
+      send({t:"answer", sdp:pc.localDescription.toJSON()});
+      for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[];
+    }
+    else if (m.t==="ice" && m.from==="tablet"){ pc && pc.remoteDescription ? pc.addIceCandidate(m.c).catch(()=>{}) : pendingIce.push(m.c); }
+  }
+}
+function linkReady(){
+  setLink("MENUNGGU PERANTI LAIN", false);
+  if (MODE==="skrin"){
+    send({t:"hello"});
+    setInterval(()=>{ if (!pc || pc.connectionState!=="connected") send({t:"hello"}); }, 5000);
+  } else if (localStream) send({t:"tablethello"});
+}
+async function initLink(){
+  if (MODE==="solo") return;
+  const el=document.createElement("div"); el.id="link"; document.body.appendChild(el);
+  setLink("MENYAMBUNG…", false);
+  if (CFG.supabaseUrl && CFG.supabaseKey){
+    try{
+      await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js");
+      const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
+      const ch = sb.channel("vipscan-"+CFG.bilik, {config:{broadcast:{self:false}}});
+      ch.on("broadcast", {event:"m"}, ({payload}) => onMsg(payload));
+      ch.subscribe(s => {
+        if (s==="SUBSCRIBED"){ _send = p => ch.send({type:"broadcast", event:"m", payload:p}); linkReady(); }
+        else if (s==="CHANNEL_ERROR"||s==="TIMED_OUT") setLink("RALAT SUPABASE ("+s+")", false);
+      });
+    }catch(e){ setLink("GAGAL MUAT SUPABASE", false); }
+  } else {
+    const bc = new BroadcastChannel("vipscan-"+CFG.bilik);
+    bc.onmessage = e => onMsg(e.data);
+    _send = p => bc.postMessage(p);
+    linkReady();
+  }
+}
+
+/* skrin: satu klik untuk aktifkan audio + skrin penuh (pelayar perlukan sentuhan pengguna) */
+if (MODE==="skrin"){
+  const ov=document.createElement("div"); ov.id="arm";
+  ov.innerHTML="<div>KLIK UNTUK AKTIFKAN SKRIN<br><small>Audio + skrin penuh · bilik: "+CFG.bilik+"</small></div>";
+  ov.onclick=()=>{ beep(1,0.01,"sine",0.0001); document.documentElement.requestFullscreen?.(); ov.remove(); };
+  document.body.appendChild(ov);
+}
+initLink();
+
+/* ---------- bunga api + konfeti ---------- */
+function fireworks(){
+  const cv=$("fx"), x=cv.getContext("2d"); cv.width=innerWidth; cv.height=innerHeight;
+  const P=[]; const cols=["#ffd34d","#ff6b3d","#2fd3ff","#1ff28a","#ffffff","#ff4fd8"];
+  function burst(){ const bx=Math.random()*cv.width, by=cv.height*(.15+Math.random()*.4), c=cols[Math.random()*cols.length|0];
+    for(let i=0;i<90;i++){ const a=Math.random()*7, s=2+Math.random()*6; P.push({x:bx,y:by,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,c,r:2.2}); } beep(200+Math.random()*200,.3,"sine",.05); }
+  function conf(){ for(let i=0;i<3;i++) P.push({x:Math.random()*cv.width,y:-10,vx:(Math.random()-.5)*2,vy:2+Math.random()*3,l:3,c:cols[Math.random()*cols.length|0],r:4,sq:1}); }
+  let f=0;
+  (function loop(){
+    f++; if (f%40===0) burst(); if (f%4===0) conf();
+    x.clearRect(0,0,cv.width,cv.height);
+    for(let i=P.length-1;i>=0;i--){ const p=P[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=p.sq?.02:.07; p.vx*=.99; p.l-=p.sq?.004:.012;
+      if(p.l<=0||p.y>cv.height+20){P.splice(i,1);continue;}
+      x.globalAlpha=Math.min(1,p.l); x.fillStyle=p.c;
+      if(p.sq) x.fillRect(p.x,p.y,p.r,p.r*1.6); else {x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fill();} }
+    x.globalAlpha=1; requestAnimationFrame(loop);
+  })();
+}
+</script>
+</body>
+</html>
