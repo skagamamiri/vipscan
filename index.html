@@ -143,7 +143,7 @@ const CFG = {
   mode:  "solo",
   bilik: "anugerah2026",
   supabaseUrl: "https://ifqgstspfxagzstccsin.supabase.co",
-  supabaseKey: ""
+  supabaseKey: "sb_publishable_qL2mtbUgiReWMf8QTQPZhg_hVxFryAP"
 };
 const q = new URLSearchParams(location.search);
 for (const k of Object.keys(CFG)) if (q.has(k)) CFG[k] = k==="saatImbas" ? +q.get(k) : q.get(k);
