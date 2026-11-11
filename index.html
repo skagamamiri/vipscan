@@ -142,11 +142,12 @@ const CFG = {
      Jika kosong, penyegerakan hanya berfungsi antara tab dalam pelayar yang sama (untuk ujian). */
   mode:  "solo",
   bilik: "anugerah2026",
+  kbps:  6000,      // bitrate video tablet→skrin (kbps). Turunkan ke 3000 jika Wi-Fi lemah
   supabaseUrl: "https://ifqgstspfxagzstccsin.supabase.co",
   supabaseKey: "sb_publishable_qL2mtbUgiReWMf8QTQPZhg_hVxFryAP"
 };
 const q = new URLSearchParams(location.search);
-for (const k of Object.keys(CFG)) if (q.has(k)) CFG[k] = k==="saatImbas" ? +q.get(k) : q.get(k);
+for (const k of Object.keys(CFG)) if (q.has(k)) CFG[k] = (k==="saatImbas"||k==="kbps") ? +q.get(k) : q.get(k);
 const MODE = CFG.mode;
 /* ======================================================= */
 
@@ -167,7 +168,8 @@ let localStream = null;
 async function startCam(){
   if (localStream || MODE==="skrin") return;
   try{
-    localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});
+    localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30}},audio:false});
+    localStream.getVideoTracks().forEach(t=>{ try{ t.contentHint="detail"; }catch(e){} });
     $("cam").srcObject = localStream; $("camoff").style.display="none"; $("camst").textContent="ONLINE";
     if (MODE==="tablet") send({t:"tablethello"});
   }catch(e){
@@ -295,14 +297,32 @@ function newPC(){
   };
   if (MODE==="skrin") pc.ontrack = e => {
     const v=$("cam"); v.srcObject = e.streams[0]; v.play().catch(()=>{});
-    $("camoff").style.display="none"; $("camst").textContent="LIVE · TABLET";
+    $("camoff").style.display="none";
+    clearInterval(window._rs); window._rs=setInterval(()=>{ $("camst").textContent="LIVE "+v.videoWidth+"×"+v.videoHeight; },1000);
   };
   return pc;
+}
+function boostSdp(sdp){
+  const k = CFG.kbps, lines = sdp.split("\r\n"); let inVideo=false; const out=[];
+  for (const l of lines){
+    if (l.startsWith("m=")) inVideo = l.startsWith("m=video");
+    if (inVideo && l.startsWith("a=fmtp:") && !/apt=/.test(l))
+      out.push(l + ";x-google-start-bitrate="+Math.round(k*.8)+";x-google-min-bitrate="+Math.round(k*.4)+";x-google-max-bitrate="+k);
+    else out.push(l);
+    if (inVideo && l.startsWith("c=")) out.push("b=AS:"+k);
+  }
+  return out.join("\r\n");
 }
 async function makeOffer(){
   if (!localStream) return;
   newPC();
   localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  for (const sd of pc.getSenders()){
+    if (!sd.track || sd.track.kind!=="video") continue;
+    try{ const pr = sd.getParameters(); pr.encodings = pr.encodings && pr.encodings.length ? pr.encodings : [{}];
+      pr.encodings[0].maxBitrate = CFG.kbps*1000; pr.encodings[0].scaleResolutionDownBy = 1; pr.encodings[0].maxFramerate = 30;
+      pr.degradationPreference = "maintain-resolution"; await sd.setParameters(pr); }catch(e){}
+  }
   await pc.setLocalDescription(await pc.createOffer());
   send({t:"offer", sdp:pc.localDescription.toJSON()});
 }
@@ -311,7 +331,7 @@ async function onMsg(m){
   if (m.t==="cmd") return act(m.a, true);
   if (MODE==="tablet"){
     if (m.t==="hello") makeOffer();
-    else if (m.t==="answer" && pc){ await pc.setRemoteDescription(m.sdp); for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[]; }
+    else if (m.t==="answer" && pc){ await pc.setRemoteDescription({type:"answer", sdp:boostSdp(m.sdp.sdp)}); for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[]; }
     else if (m.t==="ice" && m.from==="skrin" && pc){ pc.remoteDescription ? pc.addIceCandidate(m.c).catch(()=>{}) : pendingIce.push(m.c); }
   } else if (MODE==="skrin"){
     if (m.t==="tablethello") send({t:"hello"});
