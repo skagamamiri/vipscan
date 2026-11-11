@@ -286,14 +286,16 @@ function loadScript(src){ return new Promise((res,rej)=>{ const s=document.creat
 
 const ICE = {iceServers:[{urls:["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"]}]};
 let pc=null, pendingIce=[];
+let pcBorn = 0, tries = 0, peerSid = null;
+const SID = Math.random().toString(36).slice(2,10);
 function newPC(){
+  pcBorn = Date.now(); tries++;
   if (pc) pc.close();
   pendingIce=[];
   pc = new RTCPeerConnection(ICE);
-  pc.onicecandidate = e => { if (e.candidate) send({t:"ice", from:MODE, c:e.candidate.toJSON()}); };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
-    setLink(s==="connected" ? "BERSAMBUNG" : s==="failed" ? "GAGAL – cuba semula" : s.toUpperCase(), s==="connected");
+    setLink(s==="connected" ? "BERSAMBUNG" : s==="failed" ? "GAGAL – cuba semula" : s.toUpperCase()+" (#"+tries+")", s==="connected");
   };
   if (MODE==="skrin") pc.ontrack = e => {
     const v=$("cam"); v.srcObject = e.streams[0]; v.play().catch(()=>{});
@@ -309,10 +311,14 @@ function boostSdp(sdp){
     if (inVideo && l.startsWith("a=fmtp:") && !/apt=/.test(l))
       out.push(l + ";x-google-start-bitrate="+Math.round(k*.8)+";x-google-min-bitrate="+Math.round(k*.4)+";x-google-max-bitrate="+k);
     else out.push(l);
-    if (inVideo && l.startsWith("c=")) out.push("b=AS:"+k);
   }
   return out.join("\r\n");
 }
+function gathered(p){ return new Promise(res=>{
+  if (p.iceGatheringState==="complete") return res();
+  const done=()=>{ if (p.iceGatheringState==="complete"){ p.removeEventListener("icegatheringstatechange",done); res(); } };
+  p.addEventListener("icegatheringstatechange",done); setTimeout(res,4000);
+}); }
 async function makeOffer(){
   if (!localStream) return;
   newPC();
@@ -323,21 +329,29 @@ async function makeOffer(){
       pr.encodings[0].maxBitrate = CFG.kbps*1000; pr.encodings[0].scaleResolutionDownBy = 1; pr.encodings[0].maxFramerate = 30;
       pr.degradationPreference = "maintain-resolution"; await sd.setParameters(pr); }catch(e){}
   }
+  const me = pc;
   await pc.setLocalDescription(await pc.createOffer());
+  await gathered(me); if (me!==pc) return;
   send({t:"offer", sdp:pc.localDescription.toJSON()});
 }
 async function onMsg(m){
   if (!m || !m.t) return;
   if (m.t==="cmd") return act(m.a, true);
   if (MODE==="tablet"){
-    if (m.t==="hello") makeOffer();
-    else if (m.t==="answer" && pc){ await pc.setRemoteDescription({type:"answer", sdp:boostSdp(m.sdp.sdp)}); for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[]; }
+    if (m.t==="hello"){
+      const st = pc ? pc.connectionState : "none";
+      if (m.sid !== peerSid){ peerSid = m.sid; makeOffer(); }           // skrin baharu / dimuat semula
+      else if (st!=="connected" && !((st==="new"||st==="connecting") && Date.now()-pcBorn<15000)) makeOffer();
+    }
+    else if (m.t==="answer" && pc){ try{ await pc.setRemoteDescription({type:"answer", sdp:boostSdp(m.sdp.sdp)}); }catch(e){ console.warn("boostSdp ditolak",e); await pc.setRemoteDescription(m.sdp); } for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[]; }
     else if (m.t==="ice" && m.from==="skrin" && pc){ pc.remoteDescription ? pc.addIceCandidate(m.c).catch(()=>{}) : pendingIce.push(m.c); }
   } else if (MODE==="skrin"){
-    if (m.t==="tablethello") send({t:"hello"});
+    if (m.t==="tablethello") send({t:"hello", sid:SID});
     else if (m.t==="offer"){
       newPC(); await pc.setRemoteDescription(m.sdp);
+      const me = pc;
       await pc.setLocalDescription(await pc.createAnswer());
+      await gathered(me); if (me!==pc) return;
       send({t:"answer", sdp:pc.localDescription.toJSON()});
       for(const c of pendingIce) pc.addIceCandidate(c).catch(()=>{}); pendingIce=[];
     }
@@ -347,8 +361,12 @@ async function onMsg(m){
 function linkReady(){
   setLink("MENUNGGU PERANTI LAIN", false);
   if (MODE==="skrin"){
-    send({t:"hello"});
-    setInterval(()=>{ if (!pc || pc.connectionState!=="connected") send({t:"hello"}); }, 5000);
+    send({t:"hello", sid:SID});
+    setInterval(()=>{
+      const st = pc ? pc.connectionState : "none";
+      const stale = (st==="new"||st==="connecting") && Date.now()-pcBorn > 20000;
+      if (st==="none"||st==="failed"||st==="closed"||stale) send({t:"hello", sid:SID});
+    }, 5000);
   } else if (localStream) send({t:"tablethello"});
 }
 async function initLink(){
@@ -358,7 +376,7 @@ async function initLink(){
   if (CFG.supabaseUrl && CFG.supabaseKey){
     try{
       await loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js");
-      const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
+      const sb = supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {realtime:{params:{eventsPerSecond:20}}});
       const ch = sb.channel("vipscan-"+CFG.bilik, {config:{broadcast:{self:false}}});
       ch.on("broadcast", {event:"m"}, ({payload}) => onMsg(payload));
       ch.subscribe(s => {
