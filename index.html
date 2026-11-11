@@ -80,6 +80,10 @@ video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;tran
 #fs{font-size:12px;color:rgba(143,182,214,.45);background:none;border:1px solid rgba(143,182,214,.25);border-radius:6px;padding:4px 8px;cursor:pointer}
 #link{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;font-family:Orbitron;font-size:11px;letter-spacing:.12em;opacity:.7;z-index:20}
 #arm{position:fixed;inset:0;z-index:50;background:rgba(2,6,17,.92);display:flex;align-items:center;justify-content:center;text-align:center;font-family:Orbitron;font-size:clamp(18px,3vw,36px);letter-spacing:.14em;color:var(--line);cursor:pointer}
+#arm .vbox{margin-top:5vh;font-family:Rajdhani;font-size:16px;letter-spacing:.02em;color:var(--dim);display:flex;flex-direction:column;align-items:center;gap:10px;cursor:default}
+#arm .vbox b{color:var(--txt)}
+#arm .vbtn{font-family:Orbitron;font-size:13px;letter-spacing:.12em;color:#001024;background:linear-gradient(180deg,#6fe6ff,#1ea7ff);border:0;border-radius:999px;padding:10px 20px;cursor:pointer}
+#arm .vbtn.ghost{background:none;color:var(--dim);border:1px solid rgba(143,182,214,.35)}
 #arm small{display:block;font-size:.45em;color:var(--dim);margin-top:1em}
 #pick{position:fixed;inset:0;z-index:60;background:radial-gradient(ellipse at 50% 30%,#0b2a63,#020611 75%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2vh;padding:4vh 16px;text-align:center;overflow:auto}
 #pick img{width:clamp(80px,14vh,140px);filter:drop-shadow(0 0 18px rgba(47,211,255,.35))}
@@ -285,12 +289,26 @@ function launch(){
 }
 function finale(){ stage="done"; $("lvid").style.display="none"; $("final").style.display="flex"; fireworks(); }
 
-/* muat awal video pelancaran supaya tiada sekatan ketika butang ditekan */
-if (CFG.video && (MODE==="skrin"||MODE==="solo")){
-  const v=$("lvid"); v.preload="auto"; v.src=CFG.video; v.load();
-  v.addEventListener("canplaythrough", ()=>{ const el=$("vidst"); if(el) el.textContent="VIDEO: SEDIA"; }, {once:true});
-  v.addEventListener("error", ()=>{ const el=$("vidst"); if(el) el.textContent="VIDEO: RALAT"; }, {once:true});
+/* ---------- video pelancaran: fail tempatan di PC (IndexedDB) atau dari pelayan ---------- */
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open("vipscan",1);
+  r.onupgradeneeded=()=>r.result.createObjectStore("files"); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbGet(k){ try{ const d=await idb(); return await new Promise(res=>{ const q=d.transaction("files").objectStore("files").get(k); q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }catch(e){ return null; } }
+async function idbSet(k,v){ const d=await idb(); return new Promise((res,rej)=>{ const t=d.transaction("files","readwrite"); v===null ? t.objectStore("files").delete(k) : t.objectStore("files").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+function vidLabel(t){ const el=$("vidst"); if(el) el.textContent=t; }
+async function prepVideo(){
+  if (!CFG.video || !(MODE==="skrin"||MODE==="solo")) return;
+  const v=$("lvid"); v.preload="auto";
+  const local = await idbGet("video");
+  let tag;
+  if (local){ v.src=URL.createObjectURL(local); tag="VIDEO: DARI PC"; }
+  else { v.src=CFG.video; tag="VIDEO: DALAM TALIAN"; }
+  vidLabel(tag+" · MEMUAT…"); v.load();
+  v.addEventListener("canplaythrough", ()=>vidLabel(tag+" · SEDIA"), {once:true});
+  v.addEventListener("error", ()=>vidLabel(tag+" · RALAT"), {once:true});
+  return !!local;
 }
+const videoReady = prepVideo();
+
 /* tindakan: dijalankan di sini DAN dihantar ke peranti satu lagi */
 function act(a, remote){
   if (!a) return;
@@ -434,9 +452,23 @@ async function initLink(){
 /* skrin: satu klik untuk aktifkan audio + skrin penuh (pelayar perlukan sentuhan pengguna) */
 if (MODE==="skrin"){
   const ov=document.createElement("div"); ov.id="arm";
-  ov.innerHTML="<div>KLIK UNTUK AKTIFKAN SKRIN<br><small>Audio + skrin penuh · bilik: "+CFG.bilik+"</small></div>";
-  ov.onclick=()=>{ beep(1,0.01,"sine",0.0001); document.documentElement.requestFullscreen?.(); ov.remove(); };
+  ov.innerHTML=`<div>KLIK UNTUK AKTIFKAN SKRIN<br><small>Audio + skrin penuh · bilik: ${CFG.bilik}</small>
+    <div class="vbox" id="vbox">
+      <div id="vinfo">Video pelancaran: memeriksa…</div>
+      <label class="vbtn">🎞 PILIH VIDEO DARI PC INI<input type="file" accept="video/*" id="vfile" hidden></label>
+      <button class="vbtn ghost" id="vclear" style="display:none">Padam video tempatan</button>
+    </div></div>`;
+  ov.onclick=e=>{ if (e.target.closest("#vbox")) return; beep(1,0.01,"sine",0.0001); document.documentElement.requestFullscreen?.(); ov.remove(); };
   document.body.appendChild(ov);
+  const showInfo = async()=>{ const f=await idbGet("video");
+    $("vinfo").innerHTML = f ? `Video tempatan: <b>${(f.name||"video")}</b> (${(f.size/1048576).toFixed(0)} MB) — dimainkan tanpa internet`
+                             : "Video pelancaran: dimuat dari internet (launch.mp4)";
+    $("vclear").style.display = f ? "inline-block" : "none"; };
+  showInfo();
+  $("vfile").onchange = async e=>{ const f=e.target.files[0]; if(!f) return;
+    $("vinfo").textContent="Menyimpan video dalam PC…";
+    try{ await idbSet("video", f); location.reload(); }catch(err){ $("vinfo").textContent="Gagal simpan: "+err.message; } };
+  $("vclear").onclick = async ()=>{ await idbSet("video", null); location.reload(); };
 }
 initLink();
 
