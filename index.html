@@ -62,7 +62,8 @@ video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;tran
 @keyframes draw{to{stroke-dashoffset:0}}
 .granted{font-family:Orbitron;font-weight:900;font-size:clamp(22px,4.6vw,60px);letter-spacing:.12em;color:#eafff3;text-shadow:0 0 20px var(--ok)}
 .match{font-family:Orbitron;color:var(--ok);letter-spacing:.3em;font-size:clamp(10px,1.3vw,16px);margin-top:.6em}
-.vname{font-family:Orbitron;font-weight:700;font-size:clamp(18px,3.2vw,42px);margin-top:3vh;letter-spacing:.06em}
+.vhon{font-size:.55em;letter-spacing:.2em;text-transform:uppercase;color:#b9f5d6;margin-bottom:.2em}
+.vname{text-wrap:balance;font-family:Orbitron;font-weight:700;font-size:clamp(18px,3.2vw,42px);margin-top:3vh;letter-spacing:.06em}
 .vpos{color:#b9f5d6;font-size:clamp(14px,2vw,26px);letter-spacing:.14em;text-transform:uppercase;margin-top:.3em}
 .msg{color:#d8f3e6;font-size:clamp(13px,1.6vw,20px);margin-top:2.4vh;max-width:46em;margin-left:auto;margin-right:auto}
 /* launch */
@@ -151,13 +152,13 @@ video#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;tran
 <script>
 /* ======================= TETAPAN ======================= */
 const CFG = {
-  nama:    "YB DATO' NAMA VIP",
-  jawatan: "Ahli Parlimen P000 Kawasan",
+  nama:    "Yang Berhormat|Dato Sri Lee Kim Shin",   // "|" = baris baharu (baris pertama lebih kecil)
+  jawatan: "Menteri Pengangkutan Sarawak",
   mesej:   "Pengesahan biometrik berjaya. Dengan segala hormatnya, YB dijemput untuk melancarkan Majlis Anugerah Kecemerlangan SK Agama (MIS) Miri 2026.",
   majlis:  "Sistem Akses Digital · Majlis Anugerah Kecemerlangan SK Agama (MIS) Miri 2026",
   tajuk:   "MAJLIS ANUGERAH KECEMERLANGAN",
   subtajuk:"SK AGAMA (MIS) MIRI 2026",
-  video:   "launch.mp4", // video pelancaran — kosongkan ("") untuk paparan tajuk + bunga api sahaja
+  video:   "",      // video dalam talian (tiada). Video pelancaran dipilih terus dari PC skrin dewan (luar talian)
   kiraan:  "tidak",      // "ya" = tunjuk kiraan 3-2-1 sebelum video (video ini sudah ada kiraan sendiri)
   saatImbas: 6,     // tempoh imbasan (saat)
 
@@ -187,7 +188,9 @@ const MODE = NEED_PICK ? "pick" : CFG.mode;
 
 const $ = id => document.getElementById(id);
 $("evt").textContent = CFG.majlis;
-$("vname").textContent = CFG.nama;
+(()=>{ const [a,...b] = CFG.nama.split("|"); const el=$("vname");
+  if (b.length){ const t=document.createElement("div"); t.className="vhon"; t.textContent=a.trim(); el.append(t, b.join(" ").trim()); }
+  else el.textContent = a; })();
 $("vpos").textContent = CFG.jawatan;
 $("vmsg").textContent = CFG.mesej;
 $("ftitle").textContent = CFG.tajuk;
@@ -276,14 +279,14 @@ function scan(){
 function launch(){
   if (stage!=="ok") return;
   stage="go"; show("s-go");
-  const playVid = CFG.video && MODE!=="tablet";   // tablet: tiada video (jimat bandwidth untuk siaran kamera)
+  const playVid = MODE!=="tablet" && !!$("lvid").src;   // tablet: tiada video (jimat bandwidth untuk siaran kamera)
   let n = ((playVid || MODE==="tablet") && CFG.kiraan!=="ya") ? 0 : 3; const c=$("count");   // tablet: terus ke paparan majlis
   (function tick(){
     if (n>0){ c.textContent=n; c.classList.remove("pop"); void c.offsetWidth; c.classList.add("pop"); beep(520,.18,"triangle",.2); n--; setTimeout(tick,1000); return; }
     c.textContent="";
-    if (playVid){ const v=$("lvid"); if (!v.src) v.src=CFG.video; v.currentTime=0; v.muted=false; v.style.display="block";
+    if (playVid){ const v=$("lvid"); v.currentTime=0; v.muted=false; v.style.display="block";
       v.play().catch(()=>{ v.muted=true; v.play().catch(()=>{}); }); v.onended=finale; }
-    else if (MODE==="tablet" && CFG.video){ finale(); }
+    else if (MODE==="tablet"){ finale(); }
     else { beep(1040,.5,"sawtooth",.12); finale(); }
   })();
 }
@@ -296,12 +299,13 @@ async function idbGet(k){ try{ const d=await idb(); return await new Promise(res
 async function idbSet(k,v){ const d=await idb(); return new Promise((res,rej)=>{ const t=d.transaction("files","readwrite"); v===null ? t.objectStore("files").delete(k) : t.objectStore("files").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
 function vidLabel(t){ const el=$("vidst"); if(el) el.textContent=t; }
 async function prepVideo(){
-  if (!CFG.video || !(MODE==="skrin"||MODE==="solo")) return;
+  if (!(MODE==="skrin"||MODE==="solo")) return;
   const v=$("lvid"); v.preload="auto";
   const local = await idbGet("video");
   let tag;
   if (local){ v.src=URL.createObjectURL(local); tag="VIDEO: DARI PC"; }
-  else { v.src=CFG.video; tag="VIDEO: DALAM TALIAN"; }
+  else if (CFG.video){ v.src=CFG.video; tag="VIDEO: DALAM TALIAN"; }
+  else { vidLabel("VIDEO: TIADA"); return false; }
   vidLabel(tag+" · MEMUAT…"); v.load();
   v.addEventListener("canplaythrough", ()=>vidLabel(tag+" · SEDIA"), {once:true});
   v.addEventListener("error", ()=>vidLabel(tag+" · RALAT"), {once:true});
@@ -462,7 +466,7 @@ if (MODE==="skrin"){
   document.body.appendChild(ov);
   const showInfo = async()=>{ const f=await idbGet("video");
     $("vinfo").innerHTML = f ? `Video tempatan: <b>${(f.name||"video")}</b> (${(f.size/1048576).toFixed(0)} MB) — dimainkan tanpa internet`
-                             : "Video pelancaran: dimuat dari internet (launch.mp4)";
+                             : "Belum ada video pelancaran — pilih fail video dari PC ini";
     $("vclear").style.display = f ? "inline-block" : "none"; };
   showInfo();
   $("vfile").onchange = async e=>{ const f=e.target.files[0]; if(!f) return;

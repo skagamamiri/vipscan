@@ -22,7 +22,7 @@ Isi `supabaseUrl` dan `supabaseKey` (anon/publishable) dalam `CFG` di `index.htm
 
 Contoh:
 ```
-index.html?mode=skrin&bilik=anugerah2026&nama=YB%20Dato'%20Ali&jawatan=Ahli%20Parlimen&video=launch.mp4
+index.html?mode=skrin&bilik=anugerah2026&nama=YB%20Dato'%20Ali&jawatan=Ahli%20Parlimen
 ```
 
 ## Kawalan
